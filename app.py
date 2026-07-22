@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 # إعدادات واجهة التطبيق
-st.set_page_config(page_title="رادار المضاربة اللحظية الشامل", layout="compact")
+st.set_page_config(page_title="رادار المضاربة اللحظية الشامل", layout="centered")
 
 # تنسيق المظهر الداكن وتعديل الخطوط للغة العربية
 st.markdown("""
