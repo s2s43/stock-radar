@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 # إعدادات واجهة التطبيق
-st.set_page_config(page_title="رادار المضاربة اللحظية الشامل", layout="centered")
+st.set_page_config(page_title="الرادار اللحظي المتقدم للأسهم", layout="compact")
 
 # تنسيق المظهر الداكن وتعديل الخطوط للغة العربية
 st.markdown("""
@@ -16,15 +16,24 @@ st.markdown("""
         direction: rtl;
     }
     .stApp { background-color: #0d1117; color: #c9d1d9; }
+    div[data-testid="stMetricValue"] { font-size: 22px !important; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='text-align: center; color: #58a6ff;'>⚡ رادار المضاربة اللحظية والأهداف الفورية</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #58a6ff;'>⚡ رادار المضاربة اللحظية والتدفق الفوري للأسهم</h2>", unsafe_allow_html=True)
 
-# حقول الإدخال بشكل عصري
-ticker_input = st.text_input("✍️ أدخل رمز أو اسم السهم (مثال: AAPL, NVDA, 1120):", "AAPL")
-interval = st.selectbox("⏱️ حدد الفريم اللحظي للمضاربة:", ["1m", "5m", "15m", "1h", "1d"], index=1)
+# شريط التحكم والأدوات المدمجة بالتحديث اللحظي
+col_ctrl1, col_ctrl2 = st.columns([3, 1])
+with col_ctrl1:
+    ticker_input = st.text_input("✍️ أدخل رمز أو اسم السهم (مثال: AAPL, NVDA, 1120):", "AAPL")
+with col_ctrl2:
+    interval = st.selectbox("⏱️ الفريم اللحظي:", ["1m", "5m", "15m", "1h", "1d"], index=1)
 
+# زر التحديث الفوري المباشر لإنعاش شاشة السعر اللحظي
+if st.button("🔄 تحديث الأسعار والمؤشرات الآن", use_container_width=True):
+    st.rerun()
+
+# معالجة تلقائية للرموز والأسماء الشائعة
 ticker_str = ticker_input.strip().upper()
 if ticker_str.isdigit() and len(ticker_str) == 4:
     ticker_str = f"{ticker_str}.SR"
@@ -32,7 +41,7 @@ if ticker_str.isdigit() and len(ticker_str) == 4:
 arabic_map = {
     "الراجحي": "1120.SR", "أرامكو": "2222.SR", "سابك": "2010.SR", 
     "الأهلي": "1180.SR", "اس تي سي": "7010.SR", "STC": "7010.SR",
-    "أبل": "AAPL", "ابل": "AAPL", "تسلا": "TSLA", "انفيديا": "NVDA"
+    "أبل": "AAPL", "ابل": "AAPL", "تسلا": "TSLA", "انفيديا": "NVDA", "جوجل": "GOOGL"
 }
 if ticker_str in arabic_map:
     ticker_str = arabic_map[ticker_str]
@@ -42,18 +51,34 @@ currency = "ريال" if ".SR" in ticker_str else "$"
 tradingview_url = f"https://tradingview.com{ticker_str.replace('.SR', '')}/" if ".SR" not in ticker_str else f"https://tradingview.com{ticker_str.replace('.SR', '')}/"
 
 try:
+    # جلب حزم البيانات الفورية والمالية التفصيلية
     stock = yf.Ticker(ticker_str)
     df = stock.history(interval=interval, period=period, prepost=True)
     df_yearly = stock.history(period="1y")
+    info = stock.info
     
     if df.empty or df_yearly.empty:
         st.error("❌ تعذر العثور على بيانات للسهم المكتوب. يرجى التحقق من الرمز.")
     else:
+        # 1. استخراج السعر المباشر النشط في هذه اللحظة بدقة متناهية والتوقيت الممتد
         live_price = df['Close'].iloc[-1]
-        yearly_high = df_yearly['High'].max()
-        yearly_low = df_yearly['Low'].min()
+        pre_market_price = info.get('preMarketPrice', None)
+        post_market_price = info.get('postMarketPrice', None)
+        market_state = info.get('marketState', 'REGULAR').upper()
         
-        # المؤشرات الفنية
+        current_active_price = live_price
+        price_status_label = "الجلسة الرسمية 🟢"
+        
+        if market_state == 'PRE' and pre_market_price:
+            current_active_price = pre_market_price
+            price_status_label = "ما قبل السوق (Pre-Market) 🟡"
+        elif market_state == 'POST' and post_market_price:
+            current_active_price = post_market_price
+            price_status_label = "ما بعد الإغلاق (After-Hours) 🔵"
+        elif market_state != 'REGULAR':
+            price_status_label = "السوق مغلق حالياً 🔴"
+
+        # 2. حساب المؤشرات الفنية المضاربية
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -88,38 +113,76 @@ try:
         target3 = recent_high
         stop_loss = sup2 * 0.995
 
-        # تحديد التنبيه اللحظي
+        # 3. استخراج اتجاه السهم، السيولة والأسهم الحرة للتداول
+        trend_text = "اتجاه صاعد 📈" if live_price >= live_ema9 else "اتجاه هابط 📉"
+        live_volume = df['Volume'].iloc[-1]
+        
+        # جلب حجم الأسهم الحرة المتاحة للتداول (Float Shares)
+        float_shares = info.get('floatShares', None)
+        if float_shares:
+            if float_shares >= 1e9: float_shares_text = f"{float_shares / 1e9:.2f} مليار سهم"
+            elif float_shares >= 1e6: float_shares_text = f"{float_shares / 1e6:.2f} مليون سهم"
+            else: float_shares_text = f"{float_shares:,} سهم"
+        else:
+            float_shares_text = "غير متوفر بالباقة المجانية"
+
+        # 4. فلترة وتوليد النصيحة الاستراتيجية الفورية للسهم بناءً على حركة المؤشرات
         if live_price <= buy_zone_max and live_rsi <= 42:
             st.success("🟩 **[ تنبيه شراء ذهبي ]** السهم في منطقة طلب قوية وتجميع قاع الشارت!")
+            advice_text = "💡 **نصيحة الرادار:** السهم يتداول حالياً عند مستويات دعم تجميعية قوية مع تشبع بيعي واضح ومؤشر RSI منخفض، تعتبر فرصة ممتازة لبناء مراكز شرائية أولية وتفعيل أمر وقف الخسارة الصارم."
         elif live_price > live_ema9 and live_rsi < 65:
             st.info("🔵 **[ تنبيه دخول سريع ]** اختراق إيجابي وزخم سيولة متصاعد لركوب الموجة!")
+            advice_text = "💡 **نصيحة الرادار:** السهم يُظهر اختراقاً إيجابياً لمتوسط الحركة السريعة EMA9 مع اندفاع في السيولة اللحظية، ينصح بالدخول السريع لاقتناص موجة الزخم الحالية ومتابعة الأهداف الأولية بدقة."
         elif live_rsi >= 72:
             st.error("🔴 **[ تنبيه جني أرباح ]** تشبع شرائي حاد، السهم يقترب من قمم بيعية!")
+            advice_text = "💡 **نصيحة الرادار:** المؤشرات الفنية اللحظية دخلت في مناطق الإفراط والتشبع الشرائي الحاد (RSI > 72). السعر يواجه مناطق مقاومة وتصريف قريبة، يفضل البدء في جني الأرباح التدريجي لتأمين مكاسبك."
         else:
             st.warning("🟡 **[ حالة مراقبة ]** السهم مستقر داخل النطاق، انتظر تأكيد الاختراق.")
+            advice_text = "💡 **نصيحة الرادار:** السهم يتحرك حالياً في مسار عرضي متذبذب دون اتجاه واضح حاسم، يفضل البقاء في الانتظار والمراقبة حتى تأكيد اختراق المقاومة الأولى أو ملامسة الدعم الأول الموضح بالأسفل."
 
-        # عرض الكروت الرقمية المنسقة
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric(label="السعر المباشر الآن", value=f"{live_price:.2f} {currency}")
-            st.metric(label="مؤشر القوة RSI", value=f"{live_rsi:.2f}")
-        with col2:
-            st.metric(label="منطقة الدخول المناسبة (آمن)", value=f"{buy_zone_min:.2f} - {buy_zone_max:.2f}")
-            st.metric(label="منطقة الدخول السريع (زخم)", value=f"{fast_entry_min:.2f} - {fast_entry_max:.2f}")
+        # عرض الكروت الرقمية المحدثة
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric(label=f"💰 السعر المباشر في هذه اللحظة ({price_status_label})", value=f"{current_active_price:.2f} {currency}")
+            st.metric(label="📊 اتجاه السهم الفني الحالي", value=trend_text)
+            st.metric(label="🌊 حجم السيولة المتداولة (Volume)", value=f"{live_volume:,}")
+        with c2:
+            st.metric(label="🟩 منطقة أفضل سعر شراء (آمن)", value=f"{buy_zone_min:.2f} - {buy_zone_max:.2f}")
+            st.metric(label="⚡ منطقة الدخول السريع (زخم)", value=f"{fast_entry_min:.2f} - {fast_entry_max:.2f}")
+            st.metric(label="💎 الأسهم المتاحة للتداول (Float)", value=float_shares_text)
 
-        # عرض المستهدفات
+        # حقن النصيحة الاستراتيجية للسهم في الواجهة
+        st.markdown(f"<div style='background-color:#161b22; padding:15px; border-radius:10px; border:1px solid #30363d; margin-top:10px; margin-bottom:15px;'>{advice_text}</div>", unsafe_allow_html=True)
+
+        # عرض المستهدفات ووقف الخسارة
         st.markdown("### 🎯 المستهدفات الفنية المضاربية:")
-        st.write(f"🥇 **الهدف الأول:** `{target1:.2f} {currency}`")
-        st.write(f"🥈 **الهدف الثاني:** `{target2:.2f} {currency}`")
-        st.write(f"🥉 **الهدف الثالث:** `{target3:.2f} {currency}`")
+        st.write(f"🥇 **الهدف الأول (جني سريع):** `{target1:.2f} {currency}`")
+        st.write(f"🥈 **الهدف الثاني (متوسط اليوم):** `{target2:.2f} {currency}`")
+        st.write(f"🥉 **الهدف الثالث (القمة القريبة):** `{target3:.2f} {currency}`")
         st.markdown(f"🚨 **وقف الخسارة الصارم النهائي (SL):** <span style='color:#ff7b72; font-weight:bold;'>{stop_loss:.2f} {currency}</span>", unsafe_allow_html=True)
 
-        # مستويات الدعم والمقاومة الكلاسيكية
-        with st.expander("🧱 مستويات الدعم والمقاومة والقنوات السنوية"):
-            st.write(f"🟢 **الدعم 1:** `{sup1:.2f}` | 🟢 **الدعم 2:** `{sup2:.2f}`")
-            st.write(f"🔴 **المقاومة 1:** `{res1:.2f}` | 🔴 **المقاومة 2:** `{res2:.2f}`")
-            st.write(f"🔝 **القمة السنوية:** `{yearly_high:.2f}` | 🛑 **القاع السنوي:** `{yearly_low:.2f}`")
-
-except Exception:
-    st.warning("⚠️ حقول تدفق البيانات معطلة مؤقتاً خارج أوقات العمل الرسمية.")
-    st.markdown(f"👉 [تصفح شارت {ticker_str} الفوري على منصة TradingView]({tradingview_url})")
+        # 5. سحب شريط الأخبار العاجلة وتحليل الخبر الذكي (إيجابي/سلبي) تلقائياً للشاشة
+        st.markdown("---")
+        st.markdown("### 📰 آخر أخبار السهم العاجلة والتحليل الذكي للخبر:")
+        news_list = stock.news
+        
+        if news_list and len(news_list) > 0:
+            # استعراض آخر 3 أخبار حصرية صادرة للسهم لضمان عدم الازدحام
+            for article in news_list[:3]:
+                title = article.get('title', '')
+                link = article.get('link', '#')
+                publisher = article.get('publisher', 'موقع إخباري')
+                
+                # خوارزمية فلترة وتحليل الكلمات المفتاحية في العنوان لتحديد نوع الخبر
+                title_lower = title.lower()
+                positive_keywords = ['up', 'growth', 'gain', 'profit', 'buy', 'positive', 'surpass', 'bullish', 'invest', 'ارتفاع', 'نمو', 'أرباح', 'شراء']
+                negative_keywords = ['down', 'fall', 'loss', 'drop', 'negative', 'sell', 'bearish', 'risk', 'deficit', 'انخفاض', 'خسارة', 'تراجع', 'بيع']
+                
+                if any(k in title_lower for k in positive_keywords):
+                    sentiment_label = "🟢 خبر إيجابي يدعم صعود السهم والزخم"
+                elif any(k in title_lower for k in negative_keywords):
+                    sentiment_label = "🔴 خبر سلبي يستدعي الحذر والمراقبة"
+                else:
+                    sentiment_label = "🟡 خبر محايد / معلومات عامة عن القطاع"
+                    
+                st.markdown(f"""
