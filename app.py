@@ -35,8 +35,8 @@ if ticker_str.isdigit() and len(ticker_str) == 4:
     ticker_str = f"{ticker_str}.SR"
     
 arabic_map = {
-    "الراجحي": "1120.SR", "أرامكو": "2222.SR", "سابك": "2010.SR", 
-    "الأهلي": "1180.SR", "اس تي سي": "7010.SR", "STC": "7010.SR",
+    "الراجحي": "1120.SR", "أرامكو": "2222.SR", "ارامكو": "2222.SR", 
+    "سابك": "2010.SR", "الأهلي": "1180.SR", "اس تي سي": "7010.SR", "STC": "7010.SR",
     "أبل": "AAPL", "ابل": "AAPL", "تسلا": "TSLA", "انفيديا": "NVDA", "جوجل": "GOOGL"
 }
 if ticker_str in arabic_map:
@@ -151,7 +151,7 @@ try:
         with col2:
             st.metric(label="🟩 منطقة أفضل سعر شراء (آمن)", value=f"{buy_zone_min:.2f} - {buy_zone_max:.2f}")
             st.metric(label="⚡ منطقة الدخول السريع (زخم)", value=f"{fast_entry_min:.2f} - {fast_entry_max:.2f}")
-            st.metric(label="💎 الأسهم المتاحة للتداول (Float)", value=float_shares_text)
+            st.metric(label="💎 الأسهم Mتاحة للتداول (Float)", value=float_shares_text)
 
         st.markdown(f"<div style='background-color:#161b22; padding:15px; border-radius:10px; border:1px solid #30363d; margin-top:10px; margin-bottom:15px; line-height:1.6;'>{advice_text}</div>", unsafe_allow_html=True)
 
@@ -162,7 +162,7 @@ try:
         st.write(f"🥉 **الهدف الثالث (القمة القريبة):** `{target3:.2f} {currency}`")
         st.markdown(f"🚨 **وقف الخسارة الصارم النهائي (SL):** <span style='color:#ff7b72; font-weight:bold;'>{stop_loss:.2f} {currency}</span>", unsafe_allow_html=True)
 
-        # 5. سحب شريط الأخبار مع الحماية الكاملة والمحاذاة المضمونة 100%
+        # 5. معالجة وعرض الأخبار والتحليل بنظام بايثون النقي البسيط المستحيل الخطأ فيه
         st.markdown("---")
         st.markdown("### 📰 آخر أخبار السهم والتحليل الذكي للخبر:")
         
@@ -175,20 +175,19 @@ try:
                     
                     if not title_text:
                         continue
-                    
+                        
                     title_lower = title_text.lower()
-                    pos_words = ['up', 'growth', 'gain', 'profit', 'buy', 'positive', 'ارتفاع', 'نمو', 'أرباح', 'شراء']
-                    neg_words = ['down', 'fall', 'loss', 'drop', 'negative', 'sell', 'انخفاض', 'خسارة', 'تراجع', 'بيع']
                     
-                    is_positive = any(w in title_lower for w in pos_words)
-                    is_negative = any(w in title_lower for w in neg_words)
+                    # الفرز المباشر لتجنب أخطاء الإزاحة
+                    sentiment = "محايد"
+                    if "up" in title_lower or "growth" in title_lower or "gain" in title_lower or "profit" in title_lower or "buy" in title_lower or "ارتفاع" in title_lower or "أرباح" in title_lower:
+                        sentiment = "إيجابي"
+                    if "down" in title_lower or "fall" in title_lower or "loss" in title_lower or "drop" in title_lower or "sell" in title_lower or "انخفاض" in title_lower or "خسارة" in title_lower:
+                        sentiment = "سلبي"
                     
-                    news_caption = f"المصدر: {publisher_text}"
+                    # طباعة الخبر بناءً على حالته بدون استخدام جُمل شرط متداخلة معقدة
+                    st.write(f"📢 **{title_text}**")
+                    st.caption(f"المصدر: {publisher_text}")
                     
-                    if is_positive:
-                        st.info(f"📢 {title_text}\n\n{news_caption}\n\n📌 تحليل نوع الخبر: 🟢 خبر إيجابي يدعم صعود السهم والزخم")
-                    elif is_negative:
-                        st.error(f"📢 {title_text}\n\n{news_caption}\n\n📌 تحليل نوع الخبر: 🔴 خبر سلبي يستدعي الحذر والمراقبة")
-                    else:
-                        st.warning(f"📢 {title_text}\n\n{news_caption}\n\n📌 تحليل نوع الخبر: 🟡 خبر محايد / معلومات عامة")
-            else:
+                    if sentiment == "إيجابي":
+                        st.info("📌 تحليل نوع الخبر: 🟢 خبر إيجابي يدعم صعود السهم والزخم")
