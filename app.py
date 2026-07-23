@@ -170,27 +170,25 @@ try:
             news_list = stock.news
             if news_list and len(news_list) > 0:
                 for article in news_list[:3]:
-                    title = article.get('title', '')
-                    link = article.get('link', '#')
-                    publisher = article.get('publisher', 'موقع إخباري')
+                    title_text = article.get('title', '')
+                    publisher_text = article.get('publisher', 'موقع إخباري')
                     
-                    if not title:
+                    if not title_text:
                         continue
                     
-                    title_lower = title.lower()
+                    title_lower = title_text.lower()
                     pos_words = ['up', 'growth', 'gain', 'profit', 'buy', 'positive', 'ارتفاع', 'نمو', 'أرباح', 'شراء']
                     neg_words = ['down', 'fall', 'loss', 'drop', 'negative', 'sell', 'انخفاض', 'خسارة', 'تراجع', 'بيع']
                     
-                    # عملية الفلترة بأسلوب مبسط لمنع أخطاء الـ Indentation
-                    sentiment_label = "🟡 خبر محايد / معلومات عامة"
-                    for w in pos_words:
-                        if w in title_lower:
-                            sentiment_label = "🟢 خبر إيجابي يدعم صعود السهم والزخم"
-                            break
-                    for w in neg_words:
-                        if w in title_lower:
-                            sentiment_label = "🔴 خبر سلبي يستدعي الحذر والمراقبة"
-                            break
-                            
-                    st.markdown(f"""
-                    <div style='background-color:#161b22; padding:12px; border-radius:8px; border:1px solid #21262d; margin-bottom:10px;'>
+                    is_positive = any(w in title_lower for w in pos_words)
+                    is_negative = any(w in title_lower for w in neg_words)
+                    
+                    news_caption = f"المصدر: {publisher_text}"
+                    
+                    if is_positive:
+                        st.info(f"📢 {title_text}\n\n{news_caption}\n\n📌 تحليل نوع الخبر: 🟢 خبر إيجابي يدعم صعود السهم والزخم")
+                    elif is_negative:
+                        st.error(f"📢 {title_text}\n\n{news_caption}\n\n📌 تحليل نوع الخبر: 🔴 خبر سلبي يستدعي الحذر والمراقبة")
+                    else:
+                        st.warning(f"📢 {title_text}\n\n{news_caption}\n\n📌 تحليل نوع الخبر: 🟡 خبر محايد / معلومات عامة")
+            else:
