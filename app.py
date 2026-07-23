@@ -52,7 +52,6 @@ try:
     df = stock.history(interval=interval, period=period, prepost=True)
     df_yearly = stock.history(period="1y")
     
-    # حماية سحب معلومات الشركة لتجنب توقف السكربت في حال عدم توفرها
     try:
         info = stock.info
     except:
@@ -121,7 +120,6 @@ try:
         trend_text = "اتجاه صاعد 📈" if live_price >= live_ema9 else "اتجاه هابط 📉"
         live_volume = df['Volume'].iloc[-1]
         
-        # جلب حجم الأسهم الحرة المتاحة للتداول (Float Shares)
         float_shares = info.get('floatShares', None)
         if float_shares:
             if float_shares >= 1e9: float_shares_text = f"{float_shares / 1e9:.2f} مليار سهم"
@@ -155,7 +153,6 @@ try:
             st.metric(label="⚡ منطقة الدخول السريع (زخم)", value=f"{fast_entry_min:.2f} - {fast_entry_max:.2f}")
             st.metric(label="💎 الأسهم المتاحة للتداول (Float)", value=float_shares_text)
 
-        # حقن النصيحة الاستراتيجية للسهم في الواجهة
         st.markdown(f"<div style='background-color:#161b22; padding:15px; border-radius:10px; border:1px solid #30363d; margin-top:10px; margin-bottom:15px; line-height:1.6;'>{advice_text}</div>", unsafe_allow_html=True)
 
         # عرض المستهدفات ووقف الخسارة
@@ -165,28 +162,35 @@ try:
         st.write(f"🥉 **الهدف الثالث (القمة القريبة):** `{target3:.2f} {currency}`")
         st.markdown(f"🚨 **وقف الخسارة الصارم النهائي (SL):** <span style='color:#ff7b72; font-weight:bold;'>{stop_loss:.2f} {currency}</span>", unsafe_allow_html=True)
 
-        # 5. سحب شريط الأخبار العاجلة المحدث مع الحماية من تغير حقول البورصة
+        # 5. سحب شريط الأخبار مع الحماية الكاملة والمحاذاة المضمونة 100%
         st.markdown("---")
         st.markdown("### 📰 آخر أخبار السهم والتحليل الذكي للخبر:")
         
         try:
             news_list = stock.news
             if news_list and len(news_list) > 0:
-                count = 0
-                for article in news_list:
-                    if count >= 3: break # الاكتفاء بآخر 3 أخبار منعاً للازدحام
+                for article in news_list[:3]:
+                    title = article.get('title', '')
+                    link = article.get('link', '#')
+                    publisher = article.get('publisher', 'موقع إخباري')
                     
-                    # سحب البيانات بأمان مع وضع نصوص بديلة منعاً لأخطاء الحقول المعطوبة
-                    title = article.get('title', article.get('headline', ''))
-                    link = article.get('link', article.get('url', '#'))
-                    publisher = article.get('publisher', article.get('source', 'موقع إخباري'))
-                    
-                    if not title: continue
+                    if not title:
+                        continue
                     
                     title_lower = title.lower()
-                    positive_keywords = ['up', 'growth', 'gain', 'profit', 'buy', 'positive', 'surpass', 'bullish', 'invest', 'ارتفاع', 'نمو', 'أرباح', 'شراء']
-                    negative_keywords = ['down', 'fall', 'loss', 'drop', 'negative', 'sell', 'bearish', 'risk', 'deficit', 'انخفاض', 'خسارة', 'تراجع', 'بيع']
+                    pos_words = ['up', 'growth', 'gain', 'profit', 'buy', 'positive', 'ارتفاع', 'نمو', 'أرباح', 'شراء']
+                    neg_words = ['down', 'fall', 'loss', 'drop', 'negative', 'sell', 'انخفاض', 'خسارة', 'تراجع', 'بيع']
                     
-                    if any(k in title_lower for k in positive_keywords):
-                        sentiment_label = "🟢 خبر إيجابي يدعم صعود السهم والزخم"
-                    elif any(k in title_lower for k in negative_keywords):
+                    # عملية الفلترة بأسلوب مبسط لمنع أخطاء الـ Indentation
+                    sentiment_label = "🟡 خبر محايد / معلومات عامة"
+                    for w in pos_words:
+                        if w in title_lower:
+                            sentiment_label = "🟢 خبر إيجابي يدعم صعود السهم والزخم"
+                            break
+                    for w in neg_words:
+                        if w in title_lower:
+                            sentiment_label = "🔴 خبر سلبي يستدعي الحذر والمراقبة"
+                            break
+                            
+                    st.markdown(f"""
+                    <div style='background-color:#161b22; padding:12px; border-radius:8px; border:1px solid #21262d; margin-bottom:10px;'>
